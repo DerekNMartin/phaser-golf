@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       phaser:
-        specifier: ^3.88.0
-        version: 3.88.1
+        specifier: ^3.88.2
+        version: 3.88.2
       vue:
         specifier: ^3.4.27
         version: 3.5.13(typescript@5.3.3)
@@ -449,8 +449,8 @@ packages:
   path-browserify@1.0.1:
     resolution: {integrity: sha512-b7uo2UCUOYZcnF/3ID0lulOJi/bafxa1xPe7ZPsammBSpjSWQkjNxlt635YGS2MiR9GjvuXCtz2emr3jbsz98g==}
 
-  phaser@3.88.1:
-    resolution: {integrity: sha512-SNvD5rzZ4dODBR1f4DKidYg3E0EI6dWwYBjIiLNIpH1rSDuxWt/FfyAsyS9DgmHg0n+H5+SivIpJWE+9Iiz6OQ==}
+  phaser@3.88.2:
+    resolution: {integrity: sha512-UBgd2sAFuRJbF2xKaQ5jpMWB8oETncChLnymLGHcrnT53vaqiGrQWbUKUDBawKLm24sghjKo4Bf+/xfv8espZQ==}
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -867,7 +867,7 @@ snapshots:
 
   path-browserify@1.0.1: {}
 
-  phaser@3.88.1:
+  phaser@3.88.2:
     dependencies:
       eventemitter3: 5.0.1
 
