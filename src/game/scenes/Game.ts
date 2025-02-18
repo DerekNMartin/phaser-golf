@@ -73,12 +73,17 @@ export class Game extends Scene {
       ease: "Sine.easeInOut",
     });
 
-    this.strokeText = this.add.text(0, this.map.heightInPixels, "Strokes: 0", {
-      fontSize: "18px",
-      padding: { x: 8, y: 8 },
-      color: "#000000",
-      backgroundColor: "#FFFFFF",
-    });
+    this.strokeText = this.add.text(
+      0,
+      this.map.heightInPixels,
+      "Strokes: 0/6",
+      {
+        fontSize: "18px",
+        padding: { x: 8, y: 8 },
+        color: "#000000",
+        backgroundColor: "#FFFFFF",
+      }
+    );
     this.strokeText.setScrollFactor(0);
 
     this.diceText = this.add.text(
@@ -217,7 +222,9 @@ export class Game extends Scene {
     const newStrokes = this.data.get("strokes");
     newStrokes.push({ x: tileX, y: tileY });
     this.data.set("strokes", newStrokes);
-    this.strokeText.setText(`Strokes: ${this.data.get("strokes").length - 1}`);
+    this.strokeText.setText(
+      `Strokes: ${this.data.get("strokes").length - 1}/6`
+    );
   }
 
   drawStrokeMarker(tileX: number | null, tileY: number | null) {
