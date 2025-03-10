@@ -5,13 +5,11 @@ import { ShotMarker } from "../objects/ShotMarker";
 import { GameManager } from "../utils/GameManager";
 import { ShotDistanceLine } from "../objects/ShotDistanceLine";
 import { StrokeManager } from "../utils/StrokeManager";
-
-type TileTerrain = "trees" | "rough" | "fairway" | "sand" | "water";
+import { DiceManager } from "../utils/DiceManager";
 
 export class Game extends Scene {
   camera: Phaser.Cameras.Scene2D.Camera;
   strokeManager: StrokeManager;
-  diceText: Phaser.GameObjects.Text;
   map: Phaser.Tilemaps.Tilemap;
   marker: ShotMarker;
   markerDistanceLine: ShotDistanceLine;
@@ -19,6 +17,7 @@ export class Game extends Scene {
   ball: Phaser.Tilemaps.Tile | null;
   generatedTerrain: Terrain;
   gameManager: GameManager;
+  diceManager: DiceManager;
 
   constructor() {
     super("Game");
@@ -60,20 +59,13 @@ export class Game extends Scene {
     this.markerDistanceLine.create();
 
     this.strokeManager = new StrokeManager(this);
-    this.strokeManager.create();
+    this.strokeManager.create(0, this.map.heightInPixels);
 
-    this.diceText = this.add.text(
+    this.diceManager = new DiceManager(this);
+    this.diceManager.create(
       this.strokeManager.strokeText.width,
-      this.map.heightInPixels,
-      "Roll: 0",
-      {
-        fontSize: "18px",
-        padding: { x: 8, y: 8 },
-        color: "#000000",
-        backgroundColor: "#FFFFFF",
-      }
+      this.map.heightInPixels
     );
-    this.diceText.setScrollFactor(0);
 
     const putterButtonText = this.add
       .text(this.map.widthInPixels - 80, this.map.heightInPixels, "Putt", {
@@ -88,8 +80,7 @@ export class Game extends Scene {
       .setInteractive()
       .setOrigin(0, 0)
       .on("pointerdown", () => {
-        this.data.set("dice", 1);
-        this.setDiceText(1);
+        this.diceManager.updateDice(1);
       })
       .on("pointerover", () => putterButton.setFillStyle(0x333333))
       .on("pointerout", () => putterButton.setFillStyle(0x000000));
@@ -109,7 +100,7 @@ export class Game extends Scene {
         if (this.isWinningHole(selectedTileX, selectedTileY)) {
           this.winGame();
         }
-        this.diceRoll();
+        this.diceManager.diceRoll();
       }
     });
 
@@ -134,26 +125,6 @@ export class Game extends Scene {
 
   isValidMove(x?: number | null, y?: number | null) {
     return this.gameManager.isValidMove(x, y);
-  }
-
-  diceRoll() {
-    const selectedTileTerrain: TileTerrain =
-      this.gameManager.selectedTile?.properties.terrain;
-    const additional =
-      selectedTileTerrain === "fairway"
-        ? 1
-        : selectedTileTerrain === "sand"
-        ? -1
-        : 0;
-    const roll = 1 + Math.floor(Math.random() * 6);
-    this.data.set("dice", roll + additional);
-    this.setDiceText(roll, additional);
-  }
-
-  setDiceText(roll: number, additional: number = 0) {
-    this.diceText.setText(
-      `Roll: ${roll} ${additional < 0 ? "-1" : additional > 0 ? "+1" : ""}`
-    );
   }
 
   generateCourseTerrain() {
@@ -181,6 +152,6 @@ export class Game extends Scene {
       this.ball?.y
     );
 
-    this.diceRoll();
+    this.diceManager.diceRoll();
   }
 }

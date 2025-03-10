@@ -1,4 +1,5 @@
 import { Game } from "../scenes/Game";
+import { DICE_DATA_KEY } from "./DiceManager";
 
 export class GameManager {
   private static instance: GameManager;
@@ -24,7 +25,7 @@ export class GameManager {
     const pointerTile = this.scene.map.getTileAt(x, y);
     const pointerTileTerrain = pointerTile?.properties.terrain;
     const selectedTileTerrain = this.selectedTile.properties.terrain;
-    const distance = this.scene.data.get("dice");
+    const distance = this.scene.data.get(DICE_DATA_KEY);
 
     const lineTiles = this.scene.map.getTilesWithinShape(
       this.scene.markerDistanceLine.line.geom

@@ -6,14 +6,15 @@ export class StrokeManager {
   scene: Game;
   strokeText: Phaser.GameObjects.Text;
   strokeGraphicLayer: Phaser.GameObjects.Layer;
+
   constructor(scene: Game) {
     this.scene = scene;
   }
 
-  create() {
+  create(positionX: number, positionY: number) {
     this.strokeText = this.scene.add.text(
-      0,
-      this.scene.map.heightInPixels,
+      positionX,
+      positionY,
       "Strokes: 0/6",
       {
         fontSize: "18px",

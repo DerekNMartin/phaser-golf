@@ -1,3 +1,5 @@
+import { DICE_DATA_KEY } from "../utils/DiceManager";
+
 export class ShotDistanceLine {
   private scene: Phaser.Scene;
   line: Phaser.GameObjects.Line;
@@ -21,8 +23,10 @@ export class ShotDistanceLine {
     const dy = pointerTileY - selectedTile?.y; // Y direction
     const stepX = dx === 0 ? 0 : dx / Math.abs(dx); // Normalize to -1, 0, or 1
     const stepY = dy === 0 ? 0 : dy / Math.abs(dy);
-    const targetX = selectedTile?.x + stepX * this.scene.data.get("dice");
-    const targetY = selectedTile?.y + stepY * this.scene.data.get("dice");
+    const targetX =
+      selectedTile?.x + stepX * this.scene.data.get(DICE_DATA_KEY);
+    const targetY =
+      selectedTile?.y + stepY * this.scene.data.get(DICE_DATA_KEY);
 
     this.line.setTo(
       selectedTile?.getCenterX(),
