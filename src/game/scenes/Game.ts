@@ -7,24 +7,41 @@ import { ShotDistanceLine } from "../objects/ShotDistanceLine";
 import { StrokeManager } from "../utils/StrokeManager";
 import { DiceManager } from "../utils/DiceManager";
 
+export const FAIRWAY_HIT_AUDIO_KEY = "FAIRWAY_HIT";
+export const ROUGH_HIT_AUDIO_KEY = "ROUGH_HIT";
+export const SAND_HIT_AUDIO_KEY = "SAND_HIT";
+export const PUTT_HIT_AUDIO_KEY = "PUTT_HIT";
+export const CHEER_AUDIO_KEY = "CHEER";
+export const AMBIENCE_AUDIO_KEY = "AMBIENCE";
+
 export class Game extends Scene {
   camera: Phaser.Cameras.Scene2D.Camera;
   strokeManager: StrokeManager;
+  gameManager: GameManager;
+  diceManager: DiceManager;
   map: Phaser.Tilemaps.Tilemap;
+  generatedTerrain: Terrain;
   marker: ShotMarker;
   markerDistanceLine: ShotDistanceLine;
   hole: Phaser.Tilemaps.Tile | null;
   ball: Phaser.Tilemaps.Tile | null;
-  generatedTerrain: Terrain;
-  gameManager: GameManager;
-  diceManager: DiceManager;
+  audio:
+    | Phaser.Sound.HTML5AudioSound
+    | Phaser.Sound.NoAudioSound
+    | Phaser.Sound.WebAudioSound;
 
   constructor() {
     super("Game");
   }
 
   preload() {
-    this.load.image("tiles", "assets/tilesets/terrain.png");
+    this.load.image("TILES", "assets/tilesets/terrain.png");
+    this.load.audio(CHEER_AUDIO_KEY, "/assets/sound/CROWD_CHEER.wav");
+    this.load.audio(FAIRWAY_HIT_AUDIO_KEY, "assets/sound/HIT_FAIRWAY.wav");
+    this.load.audio(ROUGH_HIT_AUDIO_KEY, "assets/sound/HIT_ROUGH.wav");
+    this.load.audio(SAND_HIT_AUDIO_KEY, "assets/sound/HIT_SAND.wav");
+    this.load.audio(PUTT_HIT_AUDIO_KEY, "assets/sound/PUTT.wav");
+    this.load.audio(AMBIENCE_AUDIO_KEY, "assets/sound/BIRDS_4.wav");
   }
 
   create() {
@@ -35,8 +52,8 @@ export class Game extends Scene {
       tileWidth: 32,
     });
 
-    const tiles = this.map.addTilesetImage("course", "tiles");
-    const layer = this.map.createBlankLayer("blank", tiles);
+    const tiles = this.map.addTilesetImage("COURSE_TILESET", "TILES");
+    const layer = this.map.createBlankLayer("COURSE_LAYER", tiles);
     this.gameManager = GameManager.getInstance(this);
 
     this.cameras.main.setBounds(
@@ -90,18 +107,15 @@ export class Game extends Scene {
     this.input.on("pointerdown", (event) => {
       const selectedTileX = this.map.worldToTileX(event.x);
       const selectedTileY = this.map.worldToTileY(event.y);
-      if (this.isValidMove(selectedTileX, selectedTileY)) {
-        this.gameManager.selectedTile = this.map.getTileAt(
-          selectedTileX,
-          selectedTileY
-        );
+      this.gameManager.hitBall(selectedTileX, selectedTileY, ({ isWin }) => {
         this.strokeManager.updateStrokes(selectedTileX, selectedTileY);
         this.strokeManager.drawStrokeMarker(selectedTileX, selectedTileY);
-        if (this.isWinningHole(selectedTileX, selectedTileY)) {
+        if (isWin) {
           this.winGame();
+        } else {
+          this.diceManager.diceRoll();
         }
-        this.diceManager.diceRoll();
-      }
+      });
     });
 
     EventBus.emit("current-scene-ready", this);
@@ -117,10 +131,6 @@ export class Game extends Scene {
     this.marker.update(pointerTileX, pointerTileY);
     const selectedTile = this.gameManager.selectedTile;
     this.markerDistanceLine.update(pointerTileX, pointerTileY, selectedTile);
-  }
-
-  isWinningHole(tileX: number, tileY: number) {
-    return this.hole.x === tileX && this.hole.y === tileY;
   }
 
   isValidMove(x?: number | null, y?: number | null) {
@@ -140,7 +150,14 @@ export class Game extends Scene {
     this.scene.start("GameOver");
   }
 
+  startAmbience() {
+    this.audio = this.sound.add(AMBIENCE_AUDIO_KEY);
+    this.audio.setLoop(true);
+    this.audio.play();
+  }
+
   newCourse() {
+    this.startAmbience();
     this.generateCourseTerrain();
     this.ball = this.map.findTile((tile) => tile.index === 1);
     this.hole = this.map.findTile((tile) => tile.index === 0);

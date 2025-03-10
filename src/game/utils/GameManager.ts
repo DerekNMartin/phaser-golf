@@ -1,4 +1,12 @@
-import { Game } from "../scenes/Game";
+import {
+  Game,
+  FAIRWAY_HIT_AUDIO_KEY,
+  ROUGH_HIT_AUDIO_KEY,
+  SAND_HIT_AUDIO_KEY,
+  PUTT_HIT_AUDIO_KEY,
+  CHEER_AUDIO_KEY,
+} from "../scenes/Game";
+import { TileTerrain } from "../types/terrain";
 import { DICE_DATA_KEY } from "./DiceManager";
 
 export class GameManager {
@@ -19,9 +27,8 @@ export class GameManager {
     return GameManager.instance;
   }
 
-  isValidMove(x: number | null, y: number | null) {
-    if (x == null || y == null) return;
-    if (!this.selectedTile) return;
+  isValidMove(x?: number | null, y?: number | null) {
+    if (x == null || y == null || !this.selectedTile) return false;
     const pointerTile = this.scene.map.getTileAt(x, y);
     const pointerTileTerrain = pointerTile?.properties.terrain;
     const selectedTileTerrain = this.selectedTile.properties.terrain;
@@ -55,5 +62,37 @@ export class GameManager {
         hasTrees);
 
     return isValidTerrain && isValidDistance && !isTrees;
+  }
+
+  hitBall(
+    tileX?: number | null,
+    tileY?: number | null,
+    onHit?: (result: { isWin: boolean }) => void
+  ) {
+    if (this.isValidMove(tileX, tileY)) {
+      this.playSound(this.selectedTile?.properties.terrain);
+      this.selectedTile = this.scene.map.getTileAt(tileX, tileY);
+      const isWin = this.isWinningHole(tileX, tileY);
+      if (isWin) this.scene.sound.play(CHEER_AUDIO_KEY);
+      if (onHit) onHit({ isWin });
+    }
+  }
+
+  isWinningHole(tileX: number, tileY: number) {
+    if (!this.scene.hole) return false;
+    return this.scene.hole.x === tileX && this.scene.hole.y === tileY;
+  }
+
+  playSound(terrainType: TileTerrain) {
+    const isPutt = this.scene.data.get(DICE_DATA_KEY) === 1;
+    const soundMap = {
+      fairway: FAIRWAY_HIT_AUDIO_KEY,
+      rough: ROUGH_HIT_AUDIO_KEY,
+      sand: SAND_HIT_AUDIO_KEY,
+    };
+    const soundKey = isPutt
+      ? PUTT_HIT_AUDIO_KEY
+      : soundMap[terrainType as keyof typeof soundMap];
+    this.scene.sound.play(soundKey);
   }
 }
