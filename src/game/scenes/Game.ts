@@ -1,5 +1,9 @@
 import { EventBus } from "../EventBus";
 import { Scene } from "phaser";
+import { Terrain } from "../utils/TerrainGenerator";
+import { ShotMarker } from "../objects/ShotMarker";
+import { GameManager } from "../utils/GameManager";
+import { ShotDistanceLine } from "../objects/ShotDistanceLine";
 
 type TileTerrain = "trees" | "rough" | "fairway" | "sand" | "water";
 
@@ -10,12 +14,13 @@ export class Game extends Scene {
   camera: Phaser.Cameras.Scene2D.Camera;
   strokeText: Phaser.GameObjects.Text;
   diceText: Phaser.GameObjects.Text;
-  selectedTile: Phaser.Tilemaps.Tile | null;
   map: Phaser.Tilemaps.Tilemap;
-  marker: Phaser.GameObjects.Rectangle;
-  markerDistanceLine: Phaser.GameObjects.Line;
+  marker: ShotMarker;
+  markerDistanceLine: ShotDistanceLine;
   hole: Phaser.Tilemaps.Tile | null;
   ball: Phaser.Tilemaps.Tile | null;
+  generatedTerrain: Terrain;
+  gameManager: GameManager;
 
   constructor() {
     super("Game");
@@ -23,14 +28,21 @@ export class Game extends Scene {
 
   preload() {
     this.load.image("tiles", "assets/tilesets/terrain.png");
-    this.load.tilemapTiledJSON("map", "public/assets/maps/course.json");
   }
 
   create() {
-    this.map = this.make.tilemap({ key: "map" });
+    this.map = this.make.tilemap({
+      height: 26,
+      width: 16,
+      tileHeight: 32,
+      tileWidth: 32,
+    });
 
     const tiles = this.map.addTilesetImage("course", "tiles");
-    const layer = this.map.createLayer("Ground", tiles, 0, 0);
+    const layer = this.map.createBlankLayer("blank", tiles);
+
+    this.generateCourseTerrain();
+    this.gameManager = GameManager.getInstance(this);
 
     this.cameras.main.setBounds(
       0,
@@ -39,39 +51,27 @@ export class Game extends Scene {
       this.map.heightInPixels
     );
 
-    this.ball = this.map.findTile((tile) => tile.index === 2);
-    this.hole = this.map.findTile((tile) => tile.index === 1);
-
-    this.selectedTile = this.map.getTileAt(this.ball?.x, this.ball?.y);
+    this.ball = this.map.findTile((tile) => tile.index === 1);
+    this.hole = this.map.findTile((tile) => tile.index === 0);
 
     this.data.set("strokes", [{ x: this.ball?.x, y: this.ball.y }]);
 
-    this.marker = this.add
-      .rectangle(
-        this.ball?.pixelX,
-        this.ball?.pixelY,
-        this.map.tileWidth,
-        this.map.tileHeight
-      )
-      .setOrigin(0, 0)
-      .setStrokeStyle(3, MARKER_INVALID_COLOUR, 1);
+    this.gameManager.selectedTile = this.map.getTileAt(
+      this.ball?.x,
+      this.ball?.y
+    );
 
-    this.markerDistanceLine = this.add
-      .line()
-      .setStrokeStyle(1, 0xffffff, 0.5)
-      .setLineWidth(3)
-      .setOrigin(0, 0);
+    this.marker = new ShotMarker(
+      this,
+      this.ball?.pixelX,
+      this.ball?.pixelY,
+      this.map.tileWidth,
+      this.map.tileHeight
+    );
+    this.marker.create();
 
-    this.tweens.add({
-      targets: this.marker,
-      scale: 1.1,
-      x: this.marker.x - this.marker.width * 0.05, // Shift left
-      y: this.marker.y - this.marker.height * 0.05, // Shift up
-      yoyo: true,
-      repeat: -1,
-      duration: 300,
-      ease: "Sine.easeInOut",
-    });
+    this.markerDistanceLine = new ShotDistanceLine(this);
+    this.markerDistanceLine.create();
 
     this.strokeText = this.add.text(
       0,
@@ -123,11 +123,14 @@ export class Game extends Scene {
       const selectedTileX = this.map.worldToTileX(event.x);
       const selectedTileY = this.map.worldToTileY(event.y);
       if (this.isValidMove(selectedTileX, selectedTileY)) {
-        this.selectedTile = this.map.getTileAt(selectedTileX, selectedTileY);
+        this.gameManager.selectedTile = this.map.getTileAt(
+          selectedTileX,
+          selectedTileY
+        );
         this.updateStrokes(selectedTileX, selectedTileY);
         this.drawStrokeMarker(selectedTileX, selectedTileY);
         if (this.isWinningHole(selectedTileX, selectedTileY)) {
-          this.changeScene();
+          this.winGame();
         }
         this.diceRoll();
       }
@@ -143,37 +146,9 @@ export class Game extends Scene {
     // Rounds down to nearest tile
     const pointerTileX = this.map.worldToTileX(worldPoint.x) || 0;
     const pointerTileY = this.map.worldToTileY(worldPoint.y) || 0;
-
-    const offsetX = (this.marker.width * (this.marker.scaleX - 1)) / 2;
-    const offsetY = (this.marker.height * (this.marker.scaleY - 1)) / 2;
-
-    if (this.isValidMove(pointerTileX, pointerTileY)) {
-      this.marker.setStrokeStyle(3, MARKER_VALID_COLOUR, 1);
-    } else {
-      this.marker.setStrokeStyle(3, MARKER_INVALID_COLOUR, 1);
-    }
-
-    if (pointerTileX >= 0 && pointerTileY >= 0) {
-      this.marker.setPosition(
-        this.map.tileToWorldX(pointerTileX) - offsetX,
-        this.map.tileToWorldY(pointerTileY) - offsetY
-      );
-    }
-    // Snap to tile coordinates, but in world space
-
-    const dx = pointerTileX - this.selectedTile?.x; // X direction
-    const dy = pointerTileY - this.selectedTile?.y; // Y direction
-    const stepX = dx === 0 ? 0 : dx / Math.abs(dx); // Normalize to -1, 0, or 1
-    const stepY = dy === 0 ? 0 : dy / Math.abs(dy);
-    const targetX = this.selectedTile?.x + stepX * this.data.get("dice");
-    const targetY = this.selectedTile?.y + stepY * this.data.get("dice");
-
-    this.markerDistanceLine.setTo(
-      this.selectedTile?.getCenterX(),
-      this.selectedTile?.getCenterY(),
-      this.map.tileToWorldX(targetX) + 16,
-      this.map.tileToWorldY(targetY) + 16
-    );
+    this.marker.update(pointerTileX, pointerTileY);
+    const selectedTile = this.gameManager.selectedTile;
+    this.markerDistanceLine.update(pointerTileX, pointerTileY, selectedTile);
   }
 
   isWinningHole(tileX: number, tileY: number) {
@@ -181,41 +156,7 @@ export class Game extends Scene {
   }
 
   isValidMove(x?: number | null, y?: number | null) {
-    if (x == null || y == null) return;
-    if (!this.selectedTile) return;
-    const pointerTile = this.map.getTileAt(x, y);
-    const pointerTileTerrain = pointerTile?.properties.terrain;
-    const selectedTileTerrain = this.selectedTile.properties.terrain;
-    const distance = this.data.get("dice");
-
-    const lineTiles = this.map.getTilesWithinShape(
-      this.markerDistanceLine.geom
-    );
-    const hasTrees = lineTiles?.some(
-      (tile) => tile.properties.terrain === "trees"
-    );
-
-    // Dice roll is the allowable distance to move
-    const isValidDistance =
-      !(x === this.selectedTile.x && y === this.selectedTile.y) &&
-      ((Math.abs(x - this.selectedTile.x) === distance &&
-        y === this.selectedTile.y) || // Horizontal
-        (Math.abs(y - this.selectedTile.y) === distance &&
-          x === this.selectedTile.x) || // Vertical
-        (Math.abs(x - this.selectedTile.x) === distance &&
-          Math.abs(y - this.selectedTile.y) === distance)); // Diagonal
-
-    // Cannot land on water tiles
-    const isValidTerrain = pointerTileTerrain !== "water";
-
-    // Cannot land on trees, and hit cannot travel over trees unless on fairway
-    const isTrees =
-      pointerTileTerrain === "trees" ||
-      (selectedTileTerrain !== "fairway" &&
-        selectedTileTerrain !== undefined &&
-        hasTrees);
-
-    return isValidTerrain && isValidDistance && !isTrees;
+    return this.gameManager.isValidMove(x, y);
   }
 
   updateStrokes(tileX: number | null, tileY: number | null) {
@@ -252,7 +193,8 @@ export class Game extends Scene {
   }
 
   diceRoll() {
-    const selectedTileTerrain = this.selectedTile?.properties.terrain;
+    const selectedTileTerrain: TileTerrain =
+      this.gameManager.selectedTile?.properties.terrain;
     const additional =
       selectedTileTerrain === "fairway"
         ? 1
@@ -268,6 +210,11 @@ export class Game extends Scene {
     this.diceText.setText(
       `Roll: ${roll} ${additional < 0 ? "-1" : additional > 0 ? "+1" : ""}`
     );
+  }
+
+  generateCourseTerrain() {
+    this.generatedTerrain = new Terrain(this);
+    this.generatedTerrain.load();
   }
 
   winGame() {

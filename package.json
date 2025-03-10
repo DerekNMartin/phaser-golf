@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "phaser": "^3.88.2",
+    "simplex-noise": "^4.0.3",
     "vue": "^3.4.27"
   },
   "devDependencies": {
