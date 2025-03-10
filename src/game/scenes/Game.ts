@@ -7,9 +7,6 @@ import { ShotDistanceLine } from "../objects/ShotDistanceLine";
 
 type TileTerrain = "trees" | "rough" | "fairway" | "sand" | "water";
 
-const MARKER_VALID_COLOUR = 0x91db69;
-const MARKER_INVALID_COLOUR = 0xb33831;
-
 export class Game extends Scene {
   camera: Phaser.Cameras.Scene2D.Camera;
   strokeText: Phaser.GameObjects.Text;
@@ -17,6 +14,7 @@ export class Game extends Scene {
   map: Phaser.Tilemaps.Tilemap;
   marker: ShotMarker;
   markerDistanceLine: ShotDistanceLine;
+  strokeGraphicLayer: Phaser.GameObjects.Layer;
   hole: Phaser.Tilemaps.Tile | null;
   ball: Phaser.Tilemaps.Tile | null;
   generatedTerrain: Terrain;
@@ -40,8 +38,6 @@ export class Game extends Scene {
 
     const tiles = this.map.addTilesetImage("course", "tiles");
     const layer = this.map.createBlankLayer("blank", tiles);
-
-    this.generateCourseTerrain();
     this.gameManager = GameManager.getInstance(this);
 
     this.cameras.main.setBounds(
@@ -49,16 +45,6 @@ export class Game extends Scene {
       0,
       this.map.widthInPixels,
       this.map.heightInPixels
-    );
-
-    this.ball = this.map.findTile((tile) => tile.index === 1);
-    this.hole = this.map.findTile((tile) => tile.index === 0);
-
-    this.data.set("strokes", [{ x: this.ball?.x, y: this.ball.y }]);
-
-    this.gameManager.selectedTile = this.map.getTileAt(
-      this.ball?.x,
-      this.ball?.y
     );
 
     this.marker = new ShotMarker(
@@ -98,7 +84,6 @@ export class Game extends Scene {
       }
     );
     this.diceText.setScrollFactor(0);
-    this.diceRoll();
 
     const putterButtonText = this.add
       .text(this.map.widthInPixels - 80, this.map.heightInPixels, "Putt", {
@@ -118,6 +103,8 @@ export class Game extends Scene {
       })
       .on("pointerover", () => putterButton.setFillStyle(0x333333))
       .on("pointerout", () => putterButton.setFillStyle(0x000000));
+
+    this.newCourse();
 
     this.input.on("pointerdown", (event) => {
       const selectedTileX = this.map.worldToTileX(event.x);
@@ -169,6 +156,7 @@ export class Game extends Scene {
   }
 
   drawStrokeMarker(tileX: number | null, tileY: number | null) {
+    if (!this.strokeGraphicLayer) this.strokeGraphicLayer = this.add.layer();
     const strokesPath = this.add.graphics();
     strokesPath.setDefaultStyles({
       lineStyle: {
@@ -184,12 +172,15 @@ export class Game extends Scene {
     }));
     strokesPath.strokePoints(strokeWorldPath);
 
-    this.add.circle(
+    const strokeMarker = this.add.circle(
       this.map.tileToWorldX(tileX) + tileCenter,
       this.map.tileToWorldX(tileY) + tileCenter,
       8,
       0xffffff
     );
+
+    this.strokeGraphicLayer.addAt(strokesPath, 0);
+    this.strokeGraphicLayer.add(strokeMarker);
   }
 
   diceRoll() {
@@ -218,10 +209,31 @@ export class Game extends Scene {
   }
 
   winGame() {
-    this.changeScene();
+    this.newCourse();
   }
 
   changeScene() {
     this.scene.start("GameOver");
+  }
+
+  newCourse() {
+    this.generateCourseTerrain();
+    this.ball = this.map.findTile((tile) => tile.index === 1);
+    this.hole = this.map.findTile((tile) => tile.index === 0);
+
+    this.resetStrokes();
+
+    this.gameManager.selectedTile = this.map.getTileAt(
+      this.ball?.x,
+      this.ball?.y
+    );
+
+    this.diceRoll();
+  }
+
+  resetStrokes() {
+    this.data.set("strokes", []);
+    if (this.ball) this.updateStrokes(this.ball?.x, this.ball?.y);
+    if (this.strokeGraphicLayer) this.strokeGraphicLayer.removeAll();
   }
 }
