@@ -4,17 +4,17 @@ import { Terrain } from "../utils/TerrainGenerator";
 import { ShotMarker } from "../objects/ShotMarker";
 import { GameManager } from "../utils/GameManager";
 import { ShotDistanceLine } from "../objects/ShotDistanceLine";
+import { StrokeManager } from "../utils/StrokeManager";
 
 type TileTerrain = "trees" | "rough" | "fairway" | "sand" | "water";
 
 export class Game extends Scene {
   camera: Phaser.Cameras.Scene2D.Camera;
-  strokeText: Phaser.GameObjects.Text;
+  strokeManager: StrokeManager;
   diceText: Phaser.GameObjects.Text;
   map: Phaser.Tilemaps.Tilemap;
   marker: ShotMarker;
   markerDistanceLine: ShotDistanceLine;
-  strokeGraphicLayer: Phaser.GameObjects.Layer;
   hole: Phaser.Tilemaps.Tile | null;
   ball: Phaser.Tilemaps.Tile | null;
   generatedTerrain: Terrain;
@@ -59,21 +59,11 @@ export class Game extends Scene {
     this.markerDistanceLine = new ShotDistanceLine(this);
     this.markerDistanceLine.create();
 
-    this.strokeText = this.add.text(
-      0,
-      this.map.heightInPixels,
-      "Strokes: 0/6",
-      {
-        fontSize: "18px",
-        padding: { x: 8, y: 8 },
-        color: "#000000",
-        backgroundColor: "#FFFFFF",
-      }
-    );
-    this.strokeText.setScrollFactor(0);
+    this.strokeManager = new StrokeManager(this);
+    this.strokeManager.create();
 
     this.diceText = this.add.text(
-      this.strokeText.width,
+      this.strokeManager.strokeText.width,
       this.map.heightInPixels,
       "Roll: 0",
       {
@@ -114,8 +104,8 @@ export class Game extends Scene {
           selectedTileX,
           selectedTileY
         );
-        this.updateStrokes(selectedTileX, selectedTileY);
-        this.drawStrokeMarker(selectedTileX, selectedTileY);
+        this.strokeManager.updateStrokes(selectedTileX, selectedTileY);
+        this.strokeManager.drawStrokeMarker(selectedTileX, selectedTileY);
         if (this.isWinningHole(selectedTileX, selectedTileY)) {
           this.winGame();
         }
@@ -144,43 +134,6 @@ export class Game extends Scene {
 
   isValidMove(x?: number | null, y?: number | null) {
     return this.gameManager.isValidMove(x, y);
-  }
-
-  updateStrokes(tileX: number | null, tileY: number | null) {
-    const newStrokes = this.data.get("strokes");
-    newStrokes.push({ x: tileX, y: tileY });
-    this.data.set("strokes", newStrokes);
-    this.strokeText.setText(
-      `Strokes: ${this.data.get("strokes").length - 1}/6`
-    );
-  }
-
-  drawStrokeMarker(tileX: number | null, tileY: number | null) {
-    if (!this.strokeGraphicLayer) this.strokeGraphicLayer = this.add.layer();
-    const strokesPath = this.add.graphics();
-    strokesPath.setDefaultStyles({
-      lineStyle: {
-        width: 4,
-        color: 0xffffff,
-        alpha: 1,
-      },
-    });
-    const tileCenter = this.map.tileWidth / 2;
-    const strokeWorldPath = this.data.get("strokes").map(({ x, y }) => ({
-      x: this.map.tileToWorldX(x) + tileCenter,
-      y: this.map.tileToWorldX(y) + tileCenter,
-    }));
-    strokesPath.strokePoints(strokeWorldPath);
-
-    const strokeMarker = this.add.circle(
-      this.map.tileToWorldX(tileX) + tileCenter,
-      this.map.tileToWorldX(tileY) + tileCenter,
-      8,
-      0xffffff
-    );
-
-    this.strokeGraphicLayer.addAt(strokesPath, 0);
-    this.strokeGraphicLayer.add(strokeMarker);
   }
 
   diceRoll() {
@@ -221,7 +174,7 @@ export class Game extends Scene {
     this.ball = this.map.findTile((tile) => tile.index === 1);
     this.hole = this.map.findTile((tile) => tile.index === 0);
 
-    this.resetStrokes();
+    this.strokeManager.resetStrokes();
 
     this.gameManager.selectedTile = this.map.getTileAt(
       this.ball?.x,
@@ -229,11 +182,5 @@ export class Game extends Scene {
     );
 
     this.diceRoll();
-  }
-
-  resetStrokes() {
-    this.data.set("strokes", []);
-    if (this.ball) this.updateStrokes(this.ball?.x, this.ball?.y);
-    if (this.strokeGraphicLayer) this.strokeGraphicLayer.removeAll();
   }
 }
