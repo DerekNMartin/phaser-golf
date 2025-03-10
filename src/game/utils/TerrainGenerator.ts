@@ -2,12 +2,12 @@ import { createNoise2D } from "simplex-noise";
 import {
   TileTerrain,
   TERRAIN_BALL,
-  TERRAIN_HOLE,
   TERRAIN_FAIRWAY,
   TERRAIN_ROUGH,
   TERRAIN_SAND,
   TERRAIN_TREES,
   TERRAIN_WATER,
+  TERRAIN_HOLE,
 } from "../types/terrain";
 
 interface MapScene extends Phaser.Scene {
@@ -104,7 +104,9 @@ export class Terrain {
       x > this.gameWidth / 2 &&
       terrainType === "fairway"
     ) {
-      this.scene.map.putTileAt(TERRAIN_HOLE, x, y);
+      const tileIndex = this.getTileIndex(x, y, "hole");
+      const holeTile = this.scene.map.putTileAt(tileIndex, x, y);
+      if (holeTile) holeTile.properties.isHole = true;
       this.hasHole = true;
     }
   }
@@ -117,7 +119,9 @@ export class Terrain {
       x > 0 &&
       terrainType === "fairway"
     ) {
-      this.scene.map.putTileAt(TERRAIN_BALL, x, y);
+      const tileIndex = this.getTileIndex(x, y, "ball");
+      const ballTile = this.scene.map.putTileAt(tileIndex, x, y);
+      if (ballTile) ballTile.properties.isBall = true;
       this.hasBall = true;
     }
   }
@@ -131,12 +135,17 @@ export class Terrain {
     return this.tiles.find((tile) => tile.x === x && tile.y === y);
   }
 
-  getBitmask(x: number, y: number, terrainType: TileTerrain) {
+  getBitmask(x: number, y: number, terrainType: TileTerrain | "hole" | "ball") {
     let bitmask = 0;
 
     const check = (dx: number, dy: number, value: number) => {
       const neighbor = this.getTileAt(x + dx, y + dy);
-      if (neighbor && neighbor.properties.terrain === terrainType) {
+      const neighborTerrain = neighbor?.properties?.terrain;
+      if (terrainType === "ball" && neighborTerrain === "fairway") {
+        bitmask += value;
+      } else if (terrainType === "hole" && neighborTerrain === "fairway") {
+        bitmask += value;
+      } else if (neighborTerrain === terrainType) {
         bitmask += value;
       }
     };
@@ -150,13 +159,19 @@ export class Terrain {
   }
 
   // Get the correct orientation tile index
-  getTileIndex(x: number, y: number, terrainType: TileTerrain) {
+  getTileIndex(
+    x: number,
+    y: number,
+    terrainType: TileTerrain | "hole" | "ball"
+  ) {
     if (terrainType === "trees") return TERRAIN_TREES;
     if (terrainType === "rough") return TERRAIN_ROUGH;
     const terrainMapping = {
       fairway: TERRAIN_FAIRWAY,
       sand: TERRAIN_SAND,
       water: TERRAIN_WATER,
+      hole: TERRAIN_HOLE,
+      ball: TERRAIN_BALL,
     };
     const terrainTileIndex =
       terrainMapping[terrainType as keyof typeof terrainMapping];

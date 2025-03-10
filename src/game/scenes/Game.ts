@@ -159,8 +159,8 @@ export class Game extends Scene {
   newCourse() {
     this.startAmbience();
     this.generateCourseTerrain();
-    this.ball = this.map.findTile((tile) => tile.index === 1);
-    this.hole = this.map.findTile((tile) => tile.index === 0);
+    this.ball = this.map.findTile((tile) => tile.properties.isBall === true);
+    this.hole = this.map.findTile((tile) => tile.properties.isHole === true);
 
     this.strokeManager.resetStrokes();
 
